@@ -14,6 +14,7 @@ void count_lines(const char *filename) {
     int blank_lines = 0;
     int comment_lines = 0;
     char line[4096];
+    int in_block_comment = 0;
 
     while (fgets(line, sizeof(line), fp) != NULL) {
         total_lines++;
@@ -35,14 +36,56 @@ void count_lines(const char *filename) {
         }
 
         int is_comment = 0;
+        int in_string = 0;
+        
         for (i = 0; line[i] != '\0'; i++) {
             char c = line[i];
             if (c == '\r' || c == '\n') break;
-            if (c != ' ' && c != '\t') {
+
+            if (c == '"' && !in_string) {
+                int j = i - 1, count = 0;
+                while (j >= 0 && line[j] == '\\') {
+                    count++;
+                    j--;
+                }
+                if (count % 2 == 0) {
+                    in_string = 1;
+                }
+                continue;
+            } else if (c == '"' && in_string) {
+                int j = i - 1, count = 0;
+                while (j >= 0 && line[j] == '\\') {
+                    count++;
+                    j--;
+                }
+                if (count % 2 == 0) {
+                    in_string = 0;
+                }
+                continue;
+            }
+
+            if (in_string) continue;
+
+            if (in_block_comment) {
+                if (c == '*' && line[i + 1] != '\0' && line[i + 1] == '/') {
+                    in_block_comment = 0;
+                    i++;
+                }
+                is_comment = 1;
+            } else {
                 if (c == '/' && line[i + 1] != '\0' && line[i + 1] == '/') {
                     is_comment = 1;
+                    break;
                 }
-                break;
+                if (c == '/' && line[i + 1] != '\0' && line[i + 1] == '*') {
+                    in_block_comment = 1;
+                    is_comment = 1;
+                    i++;
+                    continue;
+                }
+                if (c != ' ' && c != '\t') {
+                    break;
+                }
             }
         }
 
